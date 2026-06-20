@@ -2,31 +2,38 @@ import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
-import { GALLERY } from '@/data/mock';
-import type { GalleryItem } from '@/data/mock';
 import Header from '@/components/forge/Header';
 import Generator from '@/components/forge/Generator';
 import GalleryGrid from '@/components/forge/GalleryGrid';
 import Dashboard from '@/components/forge/Dashboard';
+import Providers from '@/components/forge/Providers';
 import ImageViewer from '@/components/forge/ImageViewer';
+import { useGallery, useFavorites, useToggleFavorite } from '@/hooks/useApi';
+import type { ApiImage } from '@/lib/api';
+
+const TABS = [
+  { v: 'generate', i: 'Sparkles', t: 'Генератор' },
+  { v: 'gallery', i: 'Images', t: 'Галерея' },
+  { v: 'favorites', i: 'Heart', t: 'Избранное' },
+  { v: 'providers', i: 'Network', t: 'Провайдеры' },
+  { v: 'dashboard', i: 'LayoutDashboard', t: 'Дашборд' },
+];
 
 const Index = () => {
   const [tab, setTab] = useState('generate');
-  const [viewer, setViewer] = useState<GalleryItem | null>(null);
-  const [favorites, setFavorites] = useState<number[]>(
-    GALLERY.filter((g) => g.favorite).map((g) => g.id)
-  );
+  const [viewer, setViewer] = useState<ApiImage | null>(null);
 
-  const toggleFav = (id: number) => {
-    setFavorites((p) => {
-      const has = p.includes(id);
-      toast(has ? 'Убрано из избранного' : 'Добавлено в избранное');
-      return has ? p.filter((x) => x !== id) : [...p, id];
-    });
+  const gallery = useGallery();
+  const favorites = useFavorites();
+  const toggleFav = useToggleFavorite();
+
+  const galleryItems = gallery.data?.images ?? [];
+  const favItems = favorites.data?.images ?? [];
+
+  const onToggleFav = (id: number) => {
+    toggleFav.mutate(id);
+    setViewer((v) => (v && v.id === id ? { ...v, is_favorite: !v.is_favorite } : v));
   };
-
-  const favItems = GALLERY.filter((g) => favorites.includes(g.id));
 
   return (
     <div className="min-h-screen grid-bg relative overflow-x-hidden">
@@ -36,12 +43,7 @@ const Index = () => {
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <div className="sticky top-[73px] z-30 -mx-4 px-4 py-3 glass border-b border-border mb-8">
             <TabsList className="bg-muted/40 border border-border p-1 h-auto flex-wrap gap-1">
-              {[
-                { v: 'generate', i: 'Sparkles', t: 'Генератор' },
-                { v: 'gallery', i: 'Images', t: 'Галерея' },
-                { v: 'favorites', i: 'Heart', t: 'Избранное' },
-                { v: 'dashboard', i: 'LayoutDashboard', t: 'Дашборд' },
-              ].map((x) => (
+              {TABS.map((x) => (
                 <TabsTrigger
                   key={x.v}
                   value={x.v}
@@ -61,20 +63,20 @@ const Index = () => {
           <TabsContent value="gallery" className="mt-0 animate-fade-in">
             <SectionTitle title="Галерея" sub="Все созданные изображения сообщества" />
             <GalleryGrid
-              items={GALLERY}
-              favorites={favorites}
-              onToggleFav={toggleFav}
+              items={galleryItems}
+              loading={gallery.isLoading}
+              onToggleFav={onToggleFav}
               onView={setViewer}
             />
           </TabsContent>
 
           <TabsContent value="favorites" className="mt-0 animate-fade-in">
             <SectionTitle title="Избранное" sub={`${favItems.length} сохранённых работ`} />
-            {favItems.length ? (
+            {favorites.isLoading || favItems.length ? (
               <GalleryGrid
                 items={favItems}
-                favorites={favorites}
-                onToggleFav={toggleFav}
+                loading={favorites.isLoading}
+                onToggleFav={onToggleFav}
                 onView={setViewer}
               />
             ) : (
@@ -83,6 +85,11 @@ const Index = () => {
                 <p className="text-muted-foreground font-mono-tech">Список избранного пуст</p>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="providers" className="mt-0 animate-fade-in">
+            <SectionTitle title="Провайдеры" sub="Подключённые AI-движки и их модели" />
+            <Providers />
           </TabsContent>
 
           <TabsContent value="dashboard" className="mt-0 animate-fade-in">
@@ -96,8 +103,7 @@ const Index = () => {
         item={viewer}
         open={!!viewer}
         onClose={() => setViewer(null)}
-        favorites={favorites}
-        onToggleFav={toggleFav}
+        onToggleFav={onToggleFav}
       />
 
       <footer className="border-t border-border glass py-8 text-center">

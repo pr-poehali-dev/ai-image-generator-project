@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Generate image demo mode",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "prompt": "test cyberpunk city",
+        "provider": "caila",
+        "model": "flux-pro",
+        "style": "cyberpunk",
+        "ratio": "1:1",
+        "hd": true
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "status": "success"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Generate without prompt returns 400",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "prompt": ""
+      },
+      "expectedStatus": 400
+    }
+  ]
+}

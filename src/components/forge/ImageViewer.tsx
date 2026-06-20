@@ -4,23 +4,22 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import type { GalleryItem } from '@/data/mock';
+import type { ApiImage } from '@/lib/api';
 
 interface Props {
-  item: GalleryItem | null;
+  item: ApiImage | null;
   open: boolean;
   onClose: () => void;
-  favorites: number[];
   onToggleFav: (id: number) => void;
 }
 
-const ImageViewer = ({ item, open, onClose, favorites, onToggleFav }: Props) => {
+const ImageViewer = ({ item, open, onClose, onToggleFav }: Props) => {
   if (!item) return null;
 
   const download = async () => {
     toast.loading('Загрузка изображения...', { id: 'dl' });
     try {
-      const res = await fetch(item.img);
+      const res = await fetch(item.image_url);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -34,11 +33,18 @@ const ImageViewer = ({ item, open, onClose, favorites, onToggleFav }: Props) => 
     }
   };
 
+  const copyPrompt = () => {
+    navigator.clipboard.writeText(item.prompt);
+    toast.success('Промпт скопирован');
+  };
+
   const meta = [
     { i: 'Server', l: 'Провайдер', v: item.provider },
     { i: 'Box', l: 'Модель', v: item.model },
-    { i: 'Palette', l: 'Стиль', v: item.style },
-    { i: 'Calendar', l: 'Дата', v: item.date },
+    { i: 'Palette', l: 'Стиль', v: `${item.emoji} ${item.style}` },
+    { i: 'Ratio', l: 'Формат', v: item.ratio },
+    { i: 'Hash', l: 'Seed', v: item.seed ?? '—' },
+    { i: 'Coins', l: 'Кредиты', v: item.credits_used },
   ];
 
   return (
@@ -46,9 +52,9 @@ const ImageViewer = ({ item, open, onClose, favorites, onToggleFav }: Props) => 
       <DialogContent className="glass border-border max-w-4xl p-0 overflow-hidden gap-0">
         <div className="grid md:grid-cols-[1.4fr_1fr]">
           <div className="relative bg-background aspect-square md:aspect-auto">
-            <img src={item.img} alt={item.prompt} className="w-full h-full object-cover" />
+            <img src={item.image_url} alt={item.prompt} className="w-full h-full object-cover" />
             <Badge className="absolute top-4 left-4 bg-background/80 border border-primary/40 text-primary font-mono-tech">
-              {item.id} · NEUROFORGE
+              #{item.id} · NEUROFORGE
             </Badge>
           </div>
 
@@ -66,7 +72,7 @@ const ImageViewer = ({ item, open, onClose, favorites, onToggleFav }: Props) => 
               {meta.map((m) => (
                 <div key={m.l} className="flex items-center justify-between">
                   <span className="flex items-center gap-2 font-mono-tech text-xs text-muted-foreground">
-                    <Icon name={m.i} size={14} className="text-primary" />
+                    <Icon name={m.i} size={14} className="text-primary" fallback="Info" />
                     {m.l}
                   </span>
                   <span className="font-display text-xs">{m.v}</span>
@@ -93,13 +99,21 @@ const ImageViewer = ({ item, open, onClose, favorites, onToggleFav }: Props) => 
               </Button>
               <Button
                 variant="outline"
+                onClick={copyPrompt}
+                className="border-border hover:border-primary hover:bg-primary/10"
+                title="Копировать промпт"
+              >
+                <Icon name="Copy" size={16} />
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => onToggleFav(item.id)}
                 className="border-border hover:border-neon-magenta hover:bg-neon-magenta/10"
               >
                 <Icon
                   name="Heart"
                   size={16}
-                  className={favorites.includes(item.id) ? 'fill-neon-magenta text-neon-magenta' : ''}
+                  className={item.is_favorite ? 'fill-neon-magenta text-neon-magenta' : ''}
                 />
               </Button>
             </div>

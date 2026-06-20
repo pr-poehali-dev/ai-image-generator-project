@@ -10,10 +10,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { HERO_IMG } from '@/data/mock';
+import { useStats } from '@/hooks/useApi';
 
-const Header = () => (
-  <header className="sticky top-0 z-40 glass border-b border-border">
+const HERO_IMG = 'https://cdn.poehali.dev/projects/2a050ee6-8059-4f8e-bcd7-94ce7cd91055/files/24fc8279-f682-410d-909d-b1fdbf9f0cf8.jpg';
+
+const Header = () => {
+  const { data: stats } = useStats();
+  const credits = stats?.user?.credits ?? 0;
+  const username = stats?.user?.username ?? 'NEONXER';
+  const email = stats?.user?.email ?? 'pro@neuroforge.ai';
+
+  return (
+    <header className="sticky top-0 z-40 glass border-b border-border">
     <div className="container max-w-7xl mx-auto px-4 h-[73px] flex items-center justify-between">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-md bg-primary/10 border border-primary flex items-center justify-center animate-pulse-glow">
@@ -35,7 +43,7 @@ const Header = () => (
           className="hidden sm:flex border-neon-cyan/40 text-neon-cyan font-mono-tech gap-1.5 px-3 py-1"
         >
           <span className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
-          240 кредитов
+          {credits} кредитов
         </Badge>
 
         <DropdownMenu>
@@ -49,9 +57,9 @@ const Header = () => (
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass border-border w-56">
             <DropdownMenuLabel className="font-display">
-              <div className="text-foreground">NEONXER</div>
+              <div className="text-foreground">{username}</div>
               <div className="text-xs text-muted-foreground font-mono-tech font-normal">
-                pro@neuroforge.ai
+                {email}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -76,6 +84,7 @@ const Header = () => (
       </div>
     </div>
   </header>
-);
+  );
+};
 
 export default Header;

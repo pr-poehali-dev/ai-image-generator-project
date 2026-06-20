@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,48 +21,66 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { toast } from 'sonner';
-import { PROVIDERS, STYLES, RATIOS, ABSTRACT_IMG } from '@/data/mock';
+import { useProviders, useStyles, useGenerate } from '@/hooks/useApi';
+import type { GenerateResult } from '@/lib/api';
+
+const RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:2'];
+
+const PROMPT_IDEAS = [
+  'Киборг-самурай под неоновым дождём',
+  'Космическая станция в стиле ретровейв',
+  'Хакер в киберпространстве, голограммы',
+  'Неоновый дракон над городом будущего',
+];
 
 const Generator = () => {
+  const { data: provData } = useProviders();
+  const { data: styleData } = useStyles();
+  const generate = useGenerate();
+
+  const providers = provData?.providers ?? [];
+  const styles = styleData?.styles ?? [];
+
   const [prompt, setPrompt] = useState('');
   const [provider, setProvider] = useState('caila');
-  const [model, setModel] = useState(PROVIDERS[0].models[0]);
+  const [model, setModel] = useState('flux-pro');
   const [style, setStyle] = useState('cyberpunk');
   const [ratio, setRatio] = useState('1:1');
   const [steps, setSteps] = useState([30]);
   const [guidance, setGuidance] = useState([7.5]);
-  const [count, setCount] = useState([1]);
   const [hd, setHd] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<GenerateResult | null>(null);
 
-  const activeProvider = PROVIDERS.find((p) => p.id === provider)!;
+  const activeProvider = providers.find((p) => p.slug === provider);
+  const models = activeProvider?.models ?? [];
+  const activeModel = models.find((m) => m.slug === model);
+  const baseCost = activeModel?.credits_cost ?? 4;
 
-  const handleProvider = (id: string) => {
-    setProvider(id);
-    const p = PROVIDERS.find((x) => x.id === id)!;
-    setModel(p.models[0]);
+  useEffect(() => {
+    if (providers.length && !providers.find((p) => p.slug === provider)) {
+      setProvider(providers[0].slug);
+    }
+  }, [providers, provider]);
+
+  const handleProvider = (slug: string) => {
+    setProvider(slug);
+    const p = providers.find((x) => x.slug === slug);
+    if (p?.models?.length) setModel(p.models[0].slug);
   };
 
-  const generate = () => {
+  const onGenerate = () => {
     if (!prompt.trim()) {
       toast.error('Введите описание изображения');
       return;
     }
-    setLoading(true);
-    setProgress(0);
-    const iv = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          clearInterval(iv);
-          setLoading(false);
-          toast.success('Изображение сгенерировано!');
-          return 100;
-        }
-        return p + 5;
-      });
-    }, 90);
+    generate.mutate(
+      { prompt, provider, model, style, ratio, steps: steps[0], guidance: guidance[0], hd },
+      { onSuccess: (res) => setResult(res) }
+    );
   };
+
+  const loading = generate.isPending;
+  const previewImg = result?.image_url;
 
   return (
     <div className="grid lg:grid-cols-[1fr_400px] gap-6">
@@ -72,36 +90,35 @@ const Generator = () => {
           {loading ? (
             <div className="text-center z-10 px-8 w-full max-w-md">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-              <p className="font-display uppercase tracking-widest text-primary mb-3 text-sm">
-                Генерация {progress}%
+              <p className="font-display uppercase tracking-widest text-primary mb-3 text-sm animate-pulse">
+                Нейросеть рисует...
               </p>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-neon-cyan to-neon-magenta transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
               <p className="font-mono-tech text-xs text-muted-foreground mt-3">
-                {activeProvider.name} · {model}
+                {activeProvider?.name} · {activeModel?.name}
               </p>
             </div>
-          ) : (
+          ) : previewImg ? (
             <>
-              <img
-                src={ABSTRACT_IMG}
-                alt="preview"
-                className="absolute inset-0 w-full h-full object-cover opacity-20"
-              />
-              <div className="text-center z-10 px-8">
-                <Icon name="ImagePlus" size={56} className="mx-auto text-primary/60 mb-4 animate-float" />
-                <p className="font-display uppercase tracking-widest text-muted-foreground text-sm">
-                  Холст готов
-                </p>
-                <p className="font-mono-tech text-xs text-muted-foreground/60 mt-2">
-                  Введите промпт и нажмите «Сгенерировать»
-                </p>
+              <img src={previewImg} alt={result?.prompt} className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between z-10">
+                <Badge className="bg-background/80 border border-primary/40 text-primary font-mono-tech">
+                  {result?.gen_code}
+                </Badge>
+                <Badge className="bg-background/80 border border-neon-magenta/40 text-neon-magenta font-mono-tech">
+                  {result?.used_real_api ? 'REAL AI' : 'DEMO'}
+                </Badge>
               </div>
             </>
+          ) : (
+            <div className="text-center z-10 px-8">
+              <Icon name="ImagePlus" size={56} className="mx-auto text-primary/60 mb-4 animate-float" />
+              <p className="font-display uppercase tracking-widest text-muted-foreground text-sm">
+                Холст готов
+              </p>
+              <p className="font-mono-tech text-xs text-muted-foreground/60 mt-2">
+                Введите промпт и нажмите «Сгенерировать»
+              </p>
+            </div>
           )}
           <Badge className="absolute top-4 left-4 bg-background/80 border border-border font-mono-tech z-10">
             {ratio} · {hd ? 'HD' : 'SD'}
@@ -123,8 +140,20 @@ const Generator = () => {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Опишите изображение: неоновый город, киборг, дождь, кинематографичный свет..."
-              className="min-h-28 bg-input border-border font-mono-tech text-sm resize-none focus-visible:ring-primary"
+              className="min-h-24 bg-input border-border font-mono-tech text-sm resize-none focus-visible:ring-primary"
             />
+
+            <div className="flex flex-wrap gap-1.5">
+              {PROMPT_IDEAS.map((idea) => (
+                <button
+                  key={idea}
+                  onClick={() => setPrompt(idea)}
+                  className="text-[10px] font-mono-tech px-2 py-1 rounded border border-border text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+                >
+                  {idea}
+                </button>
+              ))}
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -134,8 +163,8 @@ const Generator = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="glass border-border">
-                    {PROVIDERS.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="font-display text-xs">
+                    {providers.map((p) => (
+                      <SelectItem key={p.slug} value={p.slug} className="font-display text-xs">
                         <span className="flex items-center gap-2">
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
@@ -161,9 +190,9 @@ const Generator = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="glass border-border">
-                    {activeProvider.models.map((m) => (
-                      <SelectItem key={m} value={m} className="font-display text-xs">
-                        {m}
+                    {models.map((m) => (
+                      <SelectItem key={m.slug} value={m.slug} className="font-display text-xs">
+                        {m.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -174,12 +203,12 @@ const Generator = () => {
             <div className="space-y-1.5">
               <Label className="font-mono-tech text-xs text-muted-foreground">Стиль</Label>
               <div className="grid grid-cols-3 gap-2">
-                {STYLES.map((s) => (
+                {styles.map((s) => (
                   <button
-                    key={s.id}
-                    onClick={() => setStyle(s.id)}
+                    key={s.slug}
+                    onClick={() => setStyle(s.slug)}
                     className={`p-2 rounded border text-xs font-display transition-all ${
-                      style === s.id
+                      style === s.slug
                         ? 'border-primary bg-primary/10 text-primary neon-border'
                         : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/40'
                     }`}
@@ -221,7 +250,6 @@ const Generator = () => {
                 <AccordionContent className="space-y-5 pt-3">
                   <SliderRow label="Шаги (steps)" value={steps[0]} setVal={setSteps} val={steps} min={10} max={60} step={1} />
                   <SliderRow label="Guidance Scale" value={guidance[0]} setVal={setGuidance} val={guidance} min={1} max={20} step={0.5} />
-                  <SliderRow label="Кол-во изображений" value={count[0]} setVal={setCount} val={count} min={1} max={4} step={1} />
                   <div className="flex items-center justify-between">
                     <Label className="font-mono-tech text-xs text-muted-foreground">HD-качество (×2 кредита)</Label>
                     <Switch checked={hd} onCheckedChange={setHd} />
@@ -231,7 +259,7 @@ const Generator = () => {
             </Accordion>
 
             <Button
-              onClick={generate}
+              onClick={onGenerate}
               disabled={loading}
               className="w-full font-display uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 animate-pulse-glow h-12"
             >
@@ -243,7 +271,7 @@ const Generator = () => {
               ) : (
                 <>
                   <Icon name="Sparkles" size={18} />
-                  Сгенерировать · {hd ? count[0] * 2 : count[0]} кр.
+                  Сгенерировать · {hd ? baseCost * 2 : baseCost} кр.
                 </>
               )}
             </Button>

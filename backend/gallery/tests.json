@@ -1,0 +1,41 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get gallery",
+      "method": "GET",
+      "path": "/?resource=gallery",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get providers",
+      "method": "GET",
+      "path": "/?resource=providers",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get stats",
+      "method": "GET",
+      "path": "/?resource=stats",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get history",
+      "method": "GET",
+      "path": "/?resource=history",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Toggle favorite",
+      "method": "POST",
+      "path": "/",
+      "body": { "action": "toggle_favorite", "image_id": 3 },
+      "expectedStatus": 200
+    }
+  ]
+}
